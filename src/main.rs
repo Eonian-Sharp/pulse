@@ -136,21 +136,22 @@ async fn main() -> Result<()> {
             let mut words = Vec::new();
             let mut lines = reader.lines();
             while let Some(line) = lines.next_line().await? {
-                let word = line.trim(); // 去除行尾的换行符等空白字符
-                let url = if word.starts_with("http://") || word.starts_with("https://") {
-                    word.to_string()
-                } else {
-                    format!("http://{}", word)
-                };
-                words.push(url);
+                words.push(line); // 保存原始行，不添加协议头
             }
-            words.into_iter().map(|word| opt.input.replace("FUZZ", &word)).collect::<Vec<_>>()
+
+            // 在FUZZ替换之后添加协议头
+            words.into_iter().map(|word| {
+                let mut fuzzed_url = opt.input.replace("FUZZ", &word.trim());
+                if !fuzzed_url.starts_with("http://") && !fuzzed_url.starts_with("https://") {
+                    fuzzed_url = format!("http://{}", fuzzed_url);
+                }
+                fuzzed_url
+            }).collect::<Vec<_>>()
         } else {
-            let input_url = if opt.input.starts_with("http://") || opt.input.starts_with("https://") {
-                opt.input.clone()
-            } else {
-                format!("http://{}", opt.input)
-            };
+            let mut input_url = opt.input.clone();
+            if !input_url.starts_with("http://") && !input_url.starts_with("https://") {
+                input_url = format!("http://{}", input_url);
+            }
             vec![input_url]
         }
     } else if let Ok(file) = File::open(&opt.input).await {
@@ -159,20 +160,18 @@ async fn main() -> Result<()> {
         let mut lines = reader.lines();
         while let Some(line) = lines.next_line().await? {
             let url = line.trim();
-            let url_to_add = if url.starts_with("http://") || url.starts_with("https://") {
-                url.to_string()
+            if !url.starts_with("http://") && !url.starts_with("https://") {
+                ips.push(format!("http://{}", url));
             } else {
-                format!("http://{}", url)
-            };
-            ips.push(url_to_add);
+                ips.push(url.to_string());
+            }
         }
         ips
     } else {
-        let input_url = if opt.input.starts_with("http://") || opt.input.starts_with("https://") {
-            opt.input.clone()
-        } else {
-            format!("http://{}", opt.input)
-        };
+        let mut input_url = opt.input.clone();
+        if !input_url.starts_with("http://") && !input_url.starts_with("https://") {
+            input_url = format!("http://{}", input_url);
+        }
         vec![input_url]
     };
 
