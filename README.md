@@ -24,104 +24,119 @@ Once you have Rust and Cargo installed, you can clone the `pulse` repository and
 git clone https://github.com/your-username/pulse.git
 cd pulse
 cargo build --release
+```
 
 
+### Usage
 
-Insert at cursor
-markdown
-The compiled binary will be located in the
-target/release
- directory.
-
-Usage
+```bash
 pulse [OPTIONS] --input <INPUT>
+```
 
-
-
-Insert at cursor
-text
 Options
+
+```
 -i, --input <INPUT>
-: Input IP or URL with FUZZ marker
-
+```
+:Input IP or URL with FUZZ marker
+```
 -t, --threads <THREADS>
-: Number of concurrent requests (default: 50)
+```
 
+:Number of concurrent requests (default: 50)
+```
 -o, --output <OUTPUT>
+```
+
 : Output CSV file name (default: output.csv)
-
+```
 -r, --regex
-: Enable regex matching
+```
 
+: Enable regex matching
+```
 -w, --wordlist <WORDLIST>
+```
+
 : Wordlist for fuzzing
 
---debug
-: Enable debug mode
-
+```
 -T, --timeout <TIMEOUT>
+```
+
 : Set timeout (default: 10 seconds)
-
+```
 -m, --custom-matches <CUSTOM_MATCHES>
+```
+
 : Custom regex for matching in response body
-
+```
 -s, --show-code <SHOW_CODE>
+```
+
 : Only show responses with these status codes
-
+```
 -b, --ban-code <BAN_CODE>
+```
+
 : Do not show responses with these status codes (default: 401,404)
-
+```
 --silent
+```
+
 : Silent mode: only output successful URLs
-
+```
 -d, --dir <DIR>
-: Directories to scan, comma separated
+```
 
+: Directories to scan, comma separated
+```
 -D, --dir-path <DIR_PATH>
+```
 : File containing directories to scan
 
 Examples
 Scan a single URL:
+```
+pulse --input  http://eoniansharp.com
+```
 
-pulse --input <a href="https://example.com">https://example.com</a>
-
-
-
-Insert at cursor
-text
 Scan a list of IPs from a file:
-
+```
 pulse --input ips.txt
+```
 
-
-
-Insert at cursor
-text
 Perform fuzzing with a wordlist:
+```
+pulse --input http://eoniansharp.com/FUZZ --wordlist wordlist.txt
+```
 
-pulse --input <a href="https://example.com/FUZZ">https://example.com/FUZZ</a> --wordlist wordlist.txt
-
-
-
-Insert at cursor
-text
 Scan with custom directories and regex matching:
-
-pulse --input <a href="https://example.com">https://example.com</a> --dir /admin,/secret --regex --custom-matches "password|email"
-
-
-
-Insert at cursor
-text
-Contributing
-Contributions to
-pulse
- are welcome! If you find any issues or have suggestions for improvements, please open an issue or submit a pull request on the GitHub repository.
-
-License
-pulse
- is licensed under the MIT License.
+```
+pulse --input https://eoniansharp.com/admin --dir /admin,/secret --regex --custom-matches "password|email"
+```
 
 
-This README file provides an overview of the `pulse` tool, its features, installation instructions, usage examples, and information about contributing and licensing. Feel free to modify it according to your specific needs or add any additional sections you deem necessary.
+## License
+MIT License
+
+Copyright (c) [year] [fullname]
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
