@@ -1,0 +1,19 @@
+[package]
+name = "pulse"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+reqwest = { version = "0.12", featrures = ["json"]}
+tokio = { version = "1", features = ["full"]}
+regex = "1.5"
+futures = "0.3"
+colored = "2.1.0"
+csv = "1.1"
+structopt = "0.3.26"
+anyhow = "1.0.86"
+encoding = "0.2"
+encoding_rs = "0.8.34"
+chrono = "0.4.38"
+rand = "0.8.5"
+
