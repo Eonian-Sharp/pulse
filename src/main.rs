@@ -136,22 +136,44 @@ async fn main() -> Result<()> {
             let mut words = Vec::new();
             let mut lines = reader.lines();
             while let Some(line) = lines.next_line().await? {
-                words.push(line);
+                let word = line.trim(); // 去除行尾的换行符等空白字符
+                let url = if word.starts_with("http://") || word.starts_with("https://") {
+                    word.to_string()
+                } else {
+                    format!("http://{}", word)
+                };
+                words.push(url);
             }
             words.into_iter().map(|word| opt.input.replace("FUZZ", &word)).collect::<Vec<_>>()
         } else {
-            vec![opt.input.clone()]
+            let input_url = if opt.input.starts_with("http://") || opt.input.starts_with("https://") {
+                opt.input.clone()
+            } else {
+                format!("http://{}", opt.input)
+            };
+            vec![input_url]
         }
     } else if let Ok(file) = File::open(&opt.input).await {
         let reader = BufReader::new(file);
         let mut ips = Vec::new();
         let mut lines = reader.lines();
         while let Some(line) = lines.next_line().await? {
-            ips.push(line);
+            let url = line.trim();
+            let url_to_add = if url.starts_with("http://") || url.starts_with("https://") {
+                url.to_string()
+            } else {
+                format!("http://{}", url)
+            };
+            ips.push(url_to_add);
         }
         ips
     } else {
-        vec![opt.input.clone()]
+        let input_url = if opt.input.starts_with("http://") || opt.input.starts_with("https://") {
+            opt.input.clone()
+        } else {
+            format!("http://{}", opt.input)
+        };
+        vec![input_url]
     };
 
     // Read directories from dir and dir_path
