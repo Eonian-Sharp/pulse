@@ -1,26 +1,34 @@
 use anyhow::{Result, Context};
-use futures::stream::{FuturesUnordered, StreamExt};
-use reqwest::ClientBuilder;
-use regex::Regex;
-use tokio::fs::File;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use std::time::Duration;
-use tokio::sync::Semaphore;
-use std::sync::Arc;
+use anyhow::bail;
+use chrono::Local;
 use colored::Colorize;
 use csv::WriterBuilder;
+use reqwest::header::{HeaderMap, HeaderValue, USER_AGENT,HeaderName};
 use structopt::StructOpt;
-use std::path::PathBuf;
-use chrono::Local;
+use tokio::fs::File;
+use tokio::io::{AsyncBufReadExt, BufReader};
+// use tokio::io::AsyncReadExt;
+use tokio::sync::Semaphore;
+use reqwest::{ ClientBuilder, Method};
+use futures::stream::{FuturesUnordered, StreamExt};
 use std::time::Instant;
-
+use std::time::Duration;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::thread;
+use regex::Regex;
+use rand::seq::SliceRandom;
 
 
 #[derive(Debug, StructOpt)]
-// #[structopt(name = "web_checker", about = "A web checker tool.")]
+#[structopt(name = "pulse", about = "Red Team fast and efficient target detection tool.")]
 struct Opt {
-    /// Input IP or URL with FUZZ marker
+    /// version
     #[structopt(short, long)]
+    version: bool,
+
+    /// Input IP or URL with FUZZ marker
+    #[structopt(short, long, value_name = "URL or File")]
     input: String,
 
     /// Number of concurrent requests
@@ -70,25 +78,60 @@ struct Opt {
     /// File containing directories to scan
     #[structopt(short = "D", long, parse(from_os_str))]
     dir_path: Option<PathBuf>,
+
+    /// HTTP request method (GET, POST, PUT, DELETE, etc.)
+    #[structopt(short = "M", long, default_value = "GET")]
+    method: String,
+
+    /// Custom HTTP headers to add to the request
+    #[structopt(short = "H", long, use_delimiter = true)]
+    custom_headers: Vec<String>,
+
+    /// Do not display responses with this length (in characters)
+    #[structopt(short = "L", long)]
+    filter_length: Option<usize>,
+
+    /// display responses with this length (in characters)
+    #[structopt(short = "l", long)]
+    match_length: Option<usize>,
+
+    /// Proxy URL
+    #[structopt(short = "p", long, value_name = "URL", default_value = "")]
+    http_proxy: String,
+
+    /// User-Agent to use
+    #[structopt(short = "u", long, default_value = "default", possible_values = &["default", "random", "android"])]
+    user_agent: String,
+
+    /// Disable SSL certificate validation
+    #[structopt(long)]
+    no_ssl: bool,
+
+    // /// Request body content
+    // #[structopt(short = "B", long, value_name = "BODY")]
+    // body_content: Option<String>,
 }
 
 
 fn logo(){
     let now = Local::now();
-    let version = "1.0.0";
+    let version = "1.0.1";  // 2024/7/29
     let author = "Enomothem".blue();
     let pulse = "pulse".bright_red();
     let live = "/".green();
+    let elec = "——".green();
     let stime = now.format("%Y-%m-%d %H:%M:%S").to_string().white().dimmed();
 
+    // pulse 0.0.1 2024-7-20 birth
     let logo = format!(r#"
-                    /\\      Birth：{birth}
+                   ----                 ----
+                    /\\      ATTACK：{birth}
     {pulse} {version}    /  \\
-    ______________/    \\    {live}\\______________________
+    ______________/    \\    {live}\\__{elec}_{elec}_{elec}_{elec}_{elec}_{elec}_{elec}_{elec}_{elec}_{elec}_
                         \\  {live}
                          \\{live}         by {author}
-
-    "#, version = version, author = author, live = live, pulse = pulse, birth = stime);
+                        ----                 ----
+    "#, version = version, author = author, live = live, pulse = pulse, birth = stime, elec = elec);
 
     println!("{}", logo.red());
 }
@@ -98,18 +141,54 @@ fn end(){
     println!("{}", logo.red());
 }
 
+fn version(){
+    logo();
+    thread::sleep(Duration::from_secs(1));
+    println!("{} {}","[*]".cyan(), "pulse 0.0.1 2024-7-20 2:00");
+    thread::sleep(Duration::from_secs(1));
+    println!("{} {}","[*]".cyan(), "pulse 1.0.0 2024-7-24 Github Open Source.");
+    thread::sleep(Duration::from_secs(1));
+    println!("{} {}","[+]".green(), "pulse 1.0.1 2024-7-29 Add Proxy.");
+    println!("{} {}","[*]".cyan(), "Enjoy it!");
+}
+
 
 #[tokio::main]
 async fn main() -> Result<()> {
+
+
     let start = Instant::now();
     let opt = Opt::from_args();
     if opt.debug {
         println!("{:?}", opt);
     }
+    if opt.version {
+        version();
+        return Ok(());
+    }
 
     if !opt.silent {
         logo();
-        println!("{} 💥 {} ⏳ {} 📌 {}", "[*]".cyan(), opt.threads, opt.timeout, opt.input.bright_cyan())
+        let separate = "|".bright_yellow();
+        if !opt.http_proxy.is_empty() {
+            println!("{} 💥 {} {} ⏳ {} {} 📌 {} {} 🌐 {}", "[*]".cyan(), opt.threads, separate , opt.timeout, separate, opt.input.bright_cyan(), separate,  opt.http_proxy)
+        }else{
+            println!("{} 💥 {} {} ⏳ {} {} 📌 {} ", "[*]".cyan(), opt.threads, separate, opt.timeout, separate, opt.input.bright_cyan())
+        }
+    }
+
+    // 解析自定义请求头
+    let mut headers = HeaderMap::new();
+    for header_str in &opt.custom_headers {
+        let parts: Vec<&str> = header_str.splitn(2, ':').collect();
+        if parts.len() != 2 {
+            eprintln!("Invalid custom header format: {}", header_str);
+            continue;
+        }
+        let key = parts[0].trim();
+        let value = parts[1].trim();
+        let header_name = HeaderName::from_bytes(key.as_bytes()).unwrap();
+        headers.insert(header_name, HeaderValue::from_str(value).unwrap());
     }
 
     // Create a CSV writer
@@ -119,11 +198,23 @@ async fn main() -> Result<()> {
         wtr.write_record(&["URL/IP", "Status Code", "Length", "Title"])?;
     }
 
+
     // Create HTTP client with timeout and connection pool settings
-    let client = ClientBuilder::new()
-        .timeout(Duration::from_secs(opt.timeout))
-        .pool_max_idle_per_host(10)
-        .build()?;
+    let client = if !opt.http_proxy.clone().is_empty() {
+        let pro = reqwest::Proxy::all(opt.http_proxy).expect("Failed to create proxy");
+        ClientBuilder::new()
+            .proxy(pro)
+            .timeout(Duration::from_secs(opt.timeout))
+            .pool_max_idle_per_host(10)
+            .danger_accept_invalid_certs(opt.no_ssl)
+            .build()?
+    } else {
+        ClientBuilder::new()
+            .timeout(Duration::from_secs(opt.timeout))
+            .pool_max_idle_per_host(10)
+            .danger_accept_invalid_certs(opt.no_ssl)
+            .build()?
+    };
 
     // Concurrent request semaphore
     let semaphore = Arc::new(Semaphore::new(opt.threads));
@@ -198,11 +289,57 @@ async fn main() -> Result<()> {
     // Prepare custom regex patterns
     let custom_regexes: Vec<(Regex, String)> = opt.custom_matches.iter().enumerate().map(|(i, pattern)| {
         let regex = Regex::new(pattern).unwrap();
-        (regex, format!("Custom {}", i + 1))
+        (regex, format!("Regex {}", i + 1))
     }).collect();
 
     let regex_results = Arc::new(tokio::sync::Mutex::new(Vec::new()));
     let custom_matches = Arc::new(tokio::sync::Mutex::new(Vec::new()));
+
+
+    // Convert method string to reqwest Method
+    let method = match opt.method.to_uppercase().as_str() {
+        "GET" => Method::GET,
+        "POST" => Method::POST,
+        "PUT" => Method::PUT,
+        "DELETE" => Method::DELETE,
+        "OPTION" => Method::OPTIONS,
+        "HEAD" => Method::HEAD,
+        "PATCH" => Method::PATCH,
+        "TRACE" => Method::TRACE,
+        "CONNECT" => Method::CONNECT,
+        _ => bail!("Unsupported HTTP method: {}", opt.method),
+    };
+
+    let custom_headers = headers.clone();
+    let http_uas: Vec<&str> = vec![
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:53.0) Gecko/20100101 Firefox/53.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+        "Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:53.0) Gecko/20100101 Firefox/53.0",
+        "Mozilla/5.0 (Windows NT 6.3; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_12_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3",
+    ];
+
+    let android_uas: Vec<&str> = vec![
+        "Mozilla/5.0 (Linux; Android 10; SM-G973F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.162 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 9; SM-G960F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.136 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 8.0.0; SM-G950F) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/64.0.3282.137 Mobile Safari/537.36",
+    ];
+
+
+    // let raw_body = if let Some(raw_path) = opt.raw.clone() {
+    //     let mut file = File::open(raw_path).await?;
+    //     let mut contents = Vec::new();
+    //     file.read_to_end(&mut contents).await?;
+    //     Some(contents)
+    // } else {
+    //     None
+    // };
+
+    // let body_content = opt.body_content.unwrap_or_default();
 
     let futures: FuturesUnordered<_> = inputs_with_dirs.into_iter().map(|url| {
         let client = client.clone();
@@ -215,11 +352,49 @@ async fn main() -> Result<()> {
         let show_code = opt.show_code.clone();
         let ban_code = opt.ban_code.clone();
         let silent = opt.silent;
+        let method = method.clone();
+        let custom_headers = custom_headers.clone(); // 使用解析后的 headers
+        let ua_option = opt.user_agent.clone();
+        let http_uas_clone = http_uas.clone();
+        let android_uas_clone = android_uas.clone();
+        // let body_content_clone = body_content.clone();
+        // let raw_body_clone = raw_body.clone();
+
         tokio::spawn(async move {
             let permit = semaphore.acquire_owned().await;
 
+            // Determine User-Agent
+            let ua: &str = match ua_option.as_str() {
+                "random" => {
+                    let mut rng = rand::thread_rng();
+                    http_uas_clone.choose(&mut rng).expect("No User-Agents available")
+                },
+                "android" => {
+                    let mut rng = rand::thread_rng();
+                    android_uas_clone.choose(&mut rng).expect("No Android User-Agents available")
+                },
+                _ => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3", // default UA
+            };
+
+            let mut request = client.request(method.clone(), &url);
+
+            // Add custom headers
+            for (key, value) in custom_headers.iter() {
+                request = request.header(key, value);
+            }
+
+            // // Set raw body if provided
+            // if let Some(body) = raw_body_clone.clone() {
+            //     request = request.body(body);
+            // }
+
+            let mut headers_ua = HeaderMap::new();
+            headers_ua.insert(USER_AGENT, HeaderValue::from_str(ua).unwrap());
+            request = request.headers(headers_ua);
+
             let result = async {
-                match client.get(&url).send().await {
+                // match request(method.clone(), &url).send().await {
+                match request.send().await {
                     Ok(response) => {
                         let stat = response.status();
                         let stat_code = stat.as_u16();
@@ -237,7 +412,9 @@ async fn main() -> Result<()> {
                         };
 
                         let text = response.text().await?;
-                        let len = text.len().to_string();
+                        let len = text.len();
+
+
                         let re_title = Regex::new(r"<title>(.*?)</title>").unwrap();
                         let title = if let Some(captures) = re_title.captures(&text) {
                             captures.get(1).unwrap().as_str().to_string()
@@ -245,17 +422,35 @@ async fn main() -> Result<()> {
                             "No title".to_string()
                         };
 
+                        // 长度检查
+                        if let Some(filter_length) = opt.filter_length {
+                            if len == filter_length {
+                                return Ok(());  // 不显示该长度的URL = 排除法
+                            }
+                        }
+                        if let Some(match_length) = opt.match_length {
+                            if len != match_length {
+                                return Ok(()); // 不显示除此以外的URL = 保留法
+                            }
+                        }
+
+
+
+
+                        let len = len.to_string();
                         if !silent {
                             let ok = "[+]".green();
-                            println!("{} {:55} [{}] - {:8} [{}]", ok, url.purple(), stat_colored, len.blue(), title.cyan());
+                            println!("{} {:55} [{}] - {:8} [{}]", ok, url.bright_magenta(), stat_colored, len.blue(), title.cyan());
                         } else if stat_code >= 200 && stat_code <= 299 {
                             println!("{}", url);
                         }
 
                         {
+
                             let mut wtr = wtr.lock().await;
                             wtr.write_record(&[url.clone(), stat_code.to_string(), len.clone(), title.clone()])
                                 .context("Failed to write record to CSV")?;
+
                         }
 
                         if regex_enabled {
@@ -263,6 +458,9 @@ async fn main() -> Result<()> {
                                 (Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap(), "Email"),
                                 (Regex::new(r#"https?://[^\s"]+"#).unwrap(), "URL"),
                                 (Regex::new(r#"(?i)\b(?:/[^\s+<;>"]*)+\b"#).unwrap(), "Path"),
+                                (Regex::new(r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}").unwrap(), "IP"),
+                                (Regex::new(r"\b(?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}\b").unwrap(), "Domain"),
+                                (Regex::new(r"\b\w{6,}\b").unwrap(), "Token"),
                             ];
                             let mut regex_results_lock = regex_results.lock().await;
                             for (regex, label) in &regexs {
@@ -289,7 +487,7 @@ async fn main() -> Result<()> {
                                     if let Some(match_str) = captures.get(0) {
                                         custom_matches_lock.push(format!("URL: {}, [{}]: [{}]", url, label, match_str.as_str()));
                                         if !silent {
-                                            println!("  [{}]: [{}]", label.bright_red().bold(), match_str.as_str().to_string().bright_purple());
+                                            println!("  [{}]: [{}]", label.bright_red().bold(), match_str.as_str().to_string().bright_blue());
                                         }
                                     }
                                 }
@@ -313,7 +511,7 @@ async fn main() -> Result<()> {
         let now = Local::now();
         let etime = now.format("%Y-%m-%d %H:%M:%S").to_string().white().dimmed();
         end();
-        println!("{:?}{:>23}{}", duration,"END：".cyan(),  etime)
+        println!("{} 🎉 {:?}{:>23}{}", "[!]".cyan(), duration, "END：".cyan(),  etime)
     }
     Ok(())
 
