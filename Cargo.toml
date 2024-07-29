@@ -1,10 +1,10 @@
 [package]
 name = "pulse"
-version = "0.1.0"
+version = "1.0.1"
 edition = "2021"
 
 [dependencies]
-reqwest = { version = "0.12", featrures = ["json"]}
+reqwest = { version = "0.12"}
 tokio = { version = "1", features = ["full"]}
 regex = "1.5"
 futures = "0.3"
@@ -17,3 +17,8 @@ encoding_rs = "0.8.34"
 chrono = "0.4.38"
 rand = "0.8.5"
 
+
+[profile.release]
+opt-level = "z"  #  二进制文件大小优化
+strip = true  # 自动从二进制文件去除符号信息.
+lto = true
