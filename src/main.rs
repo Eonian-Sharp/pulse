@@ -434,14 +434,13 @@ async fn main() -> Result<()> {
                             }
                         }
 
-
-
-
                         let len = len.to_string();
                         if !silent {
                             let ok = "[+]".green();
                             println!("{} {:55} [{}] - {:8} [{}]", ok, url.bright_magenta(), stat_colored, len.blue(), title.cyan());
-                        } else if stat_code >= 200 && stat_code <= 299 {
+                        } else if !show_code.is_empty() {
+                            println!("{}", url);
+                        } else if (200..=299).contains(&stat_code)  {
                             println!("{}", url);
                         }
 
