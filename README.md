@@ -21,7 +21,7 @@ To install `pulse`, you need to have Rust and Cargo installed on your system. Yo
 Once you have Rust and Cargo installed, you can clone the `pulse` repository and build the project:
 
 ```bash
-git clone https://github.com/your-username/pulse.git
+git clone https://github.com/Eonian-Sharp/pulse.git
 cd pulse
 cargo build --release
 ```
