@@ -17,8 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::thread;
 use regex::Regex;
-use rand::seq::SliceRandom;
-
+use rand::prelude::IndexedRandom;
 
 #[derive(Debug, StructOpt)]
 #[structopt(name = "pulse", about = "Red Team fast and efficient target detection tool.")]
@@ -366,11 +365,11 @@ async fn main() -> Result<()> {
             // Determine User-Agent
             let ua: &str = match ua_option.as_str() {
                 "random" => {
-                    let mut rng = rand::thread_rng();
+                    let mut rng = rand::rng();
                     http_uas_clone.choose(&mut rng).expect("No User-Agents available")
                 },
                 "android" => {
-                    let mut rng = rand::thread_rng();
+                    let mut rng = rand::rng();
                     android_uas_clone.choose(&mut rng).expect("No Android User-Agents available")
                 },
                 _ => "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3", // default UA
