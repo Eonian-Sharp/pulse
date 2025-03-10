@@ -2,6 +2,9 @@
 
 `pulse` is a powerful web scanning and fuzzing tool written in Rust. It allows you to perform concurrent web requests, directory fuzzing, and custom regex matching on the responses.
 
+![image](https://github.com/user-attachments/assets/4c4b9469-8ff6-49eb-b202-63f8c3fe1768)
+
+
 ## Features
 
 - Concurrent web requests with configurable thread count
