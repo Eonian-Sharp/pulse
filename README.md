@@ -41,62 +41,62 @@ Options
 ```
 -i, --input <INPUT>
 ```
-:Input IP or URL with FUZZ marker
+Input IP or URL with FUZZ marker
 ```
 -t, --threads <THREADS>
 ```
 
-:Number of concurrent requests (default: 50)
+Number of concurrent requests (default: 50)
 ```
 -o, --output <OUTPUT>
 ```
 
-: Output CSV file name (default: output.csv)
+ Output CSV file name (default: output.csv)
 ```
 -r, --regex
 ```
 
-: Enable regex matching
+ Enable regex matching
 ```
 -w, --wordlist <WORDLIST>
 ```
 
-: Wordlist for fuzzing
+ Wordlist for fuzzing
 
 ```
 -T, --timeout <TIMEOUT>
 ```
 
-: Set timeout (default: 10 seconds)
+ Set timeout (default: 10 seconds)
 ```
 -m, --custom-matches <CUSTOM_MATCHES>
 ```
 
-: Custom regex for matching in response body
+ Custom regex for matching in response body
 ```
 -s, --show-code <SHOW_CODE>
 ```
 
-: Only show responses with these status codes
+ Only show responses with these status codes
 ```
 -b, --ban-code <BAN_CODE>
 ```
 
-: Do not show responses with these status codes (default: 401,404)
+ Do not show responses with these status codes (default: 401,404)
 ```
 --silent
 ```
 
-: Silent mode: only output successful URLs
+ Silent mode: only output successful URLs
 ```
 -d, --dir <DIR>
 ```
 
-: Directories to scan, comma separated
+ Directories to scan, comma separated
 ```
 -D, --dir-path <DIR_PATH>
 ```
-: File containing directories to scan
+ File containing directories to scan
 
 Examples
 Scan a single URL:
